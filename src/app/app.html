@@ -1,6 +1,6 @@
 <main class="main">
   <div class="content">
-    <header>
+    <!-- <header>
       <div class="left-section">
       <h2 class="title">Task Manager</h2>
       <nav class="nav-buttons">
@@ -23,13 +23,28 @@
       <div class="tab-container">
         <router-outlet >
        
-        <!-- <app-task></app-task>
-        <app-categories></app-categories> -->
+     
         </router-outlet>
 
       </div>
  
-    </div>
+    </div> -->
+    <nav class="navigation">
+      <div class="nav-brand">
+        <h2>TaskManager</h2>
+      </div>
+      <div class="nav-links">
+        <a routerLink="/tasks" routerLinkActive="active" class="nav-link">
+          <span class="nav-icon">📋</span>
+          Tasks
+        </a>
+        <a routerLink="/categories" routerLinkActive="active" class="nav-link">
+          <span class="nav-icon">📁</span>
+          Categories
+        </a>
+      </div>
+    </nav>
+  <router-outlet/>
   </div>
 </main>
 
