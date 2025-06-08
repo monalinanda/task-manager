@@ -1,1 +1,93 @@
-<p>category-list works!</p>
+<div class="category-list-container">
+  <div class="header">
+    <h1>Categories</h1>
+    <button class="btn btn-primary" (click)="navigateToCreateCategory()">
+      <span class="icon">+</span>
+      New Category
+    </button>
+  </div>
+
+  <!-- filter -->
+  <div class="filters-card">
+    <h3>Search & Sort</h3>
+    <div class="filters-grid">
+      <div class="filter-group">
+        <label>Search Title</label>
+        <input type="text" placeholder="Search categories..." />
+      </div>
+
+      <div class="filter-group">
+        <label>Sort By</label>
+        <select>
+          <option value="title">Title</option>
+          <option value="createdAt">Created Date</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>Order</label>
+        <select>
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <button class="btn btn-secondary">Clear</button>
+      </div>
+    </div>
+  </div>
+  <!-- category card -->
+  <div class="categories-grid">
+    <div class="category-card">
+      <div class="category-header">
+        <div class="category-color"></div>
+        <h3></h3>
+        <div class="category-actions">
+          <button class="btn-icon">✏️</button>
+          <button class="btn-icon delete">🗑️</button>
+        </div>
+      </div>
+
+      <p class="category-description">description</p>
+
+      <div class="category-stats">
+        <div class="stat">
+          <span class="stat-number">12</span>
+          <span class="stat-label">Tasks</span>
+        </div>
+        <div class="stat">
+          <span class="stat-date">12.03.2025</span>
+          <span class="stat-label">Created</span>
+        </div>
+      </div>
+
+      <!-- Category Tasks Preview -->
+      <div class="category-tasks">
+        <h4>Recent Tasks</h4>
+        <div class="task-preview">
+          <span class="task-title">title</span>
+          <span class="task-status">task.status</span>
+        </div>
+        <div class="more-tasks">3 3more tasks</div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state">
+      <div class="empty-icon">📁</div>
+      <h3>No categories found</h3>
+      <p>Create your first category to organize your tasks better.</p>
+      <button class="btn btn-primary">Create Category</button>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination">
+    <button class="btn btn-secondary">Previous</button>
+
+    <span class="page-info"> Page 1 of 10 </span>
+
+    <button class="btn btn-secondary">Next</button>
+  </div>
+</div>

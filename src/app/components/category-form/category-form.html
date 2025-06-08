@@ -1,1 +1,68 @@
-<p>category-form works!</p>
+<div class="category-form-container">
+    <div class="form-header">
+      <h1>{{isEditMode ? 'Edit Category' : 'Create New Category'}}</h1>
+      <button class="btn btn-secondary" (click)="goBack()">
+        ← Back to Categories
+      </button>
+    </div>
+
+    <form class="category-form" (ngSubmit)="onSubmit()" #categoryForm="ngForm">
+      <div class="form-card">
+        <div class="form-group">
+          <label for="title">Category Title *</label>
+          <input 
+            type="text" 
+            id="title" 
+            name="title"
+
+            required
+            placeholder="Enter category title">
+          <!-- <div class="error-message" *ngIf="titleField.invalid && titleField.touched"> -->
+            <div class="error-message" >
+            Category title is required
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Description</label>
+          <textarea 
+            id="description" 
+            name="description"
+          
+            rows="4"
+            placeholder="Enter category description"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="color">Color</label>
+          <div class="color-picker-group">
+            <input 
+              type="color" 
+              id="color" 
+              name="color"
+             
+              class="color-input">
+            <div class="color-presets">
+              <button 
+                type="button"
+             
+                class="color-preset"
+              
+                (click)="selectColor('#FF5733')"
+                >
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" (click)="goBack()">
+            Cancel
+          </button>
+          <button type="submit" class="btn btn-primary" [disabled]="!categoryForm.form.valid">
+            {{isEditMode ? 'Update Category' : 'Create Category'}}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
