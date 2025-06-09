@@ -1,81 +1,105 @@
 <div class="task-form-container">
-    <div class="form-header">
-      <h1>{{isEditMode ? 'Edit Task' : 'Create New Task'}}</h1>
-      <button class="btn btn-secondary" (click)="goBack()">
-        ← Back to Tasks
-      </button>
-    </div>
+  <div class="form-header">
+    <h1>{{isEditMode ? 'Edit Task' : 'Create New Task'}}</h1>
+    <button class="btn btn-secondary" (click)="goBack()">
+      ← Back to Tasks
+    </button>
+  </div>
 
-    <form class="task-form"  >
-      <div class="form-card">
+  <div class="error-message" *ngIf="taskService.error$ | async as error">
+    {{error}}
+  </div>
+
+  <form class="task-form" [formGroup]="taskForm" (ngSubmit)="onSubmit()">
+    <div class="form-card">
+      <div class="form-group">
+        <label for="title">Task Title *</label>
+        <input
+          type="text"
+          id="title"
+          formControlName="title"
+          required
+          placeholder="Enter task title"
+        />
+        <div
+          class="error-message"
+          *ngIf="taskForm.get('title')?.invalid && taskForm.get('title')?.touched"
+        >
+          Task title is required
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <textarea
+          id="description"
+          formControlName="description"
+          rows="4"
+          placeholder="Enter task description"
+        ></textarea>
+      </div>
+
+      <div class="form-row">
         <div class="form-group">
-          <label for="title">Task Title *</label>
-          <input 
-            type="text" 
-            id="title" 
-            name="title"
-            
-            required
-          
-            placeholder="Enter task title">
-          <div class="error-message" >
-            Task title is required
+          <label for="dueDate">Due Date *</label>
+          <input type="date" id="dueDate" formControlName="dueDate" required />
+          <div
+            class="error-message"
+            *ngIf="taskForm.get('dueDate')?.invalid && taskForm.get('dueDate')?.touched"
+          >
+            Due date is required
           </div>
         </div>
-
         <div class="form-group">
-          <label for="description">Description</label>
-          <textarea 
-            id="description" 
-            name="description"
-         
-            rows="4"
-            placeholder="Enter task description"></textarea>
+          <label for="priority">Priority</label>
+          <select id="priority" formControlName="priority">
+            <option [value]="TaskPriority.LOW">{{ TaskPriority.LOW }}</option>
+            <option [value]="TaskPriority.MEDIUM">
+              {{ TaskPriority.MEDIUM }}
+            </option>
+            <option [value]="TaskPriority.HIGH">{{ TaskPriority.HIGH }}</option>
+          </select>
         </div>
+      </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="dueDate">Due Date *</label>
-            <input 
-              type="date" 
-              id="dueDate" 
-              name="dueDate"
-     
-              required
-            >
-            <div class="error-message" >
-              Due date is required
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="status">Status</label>
-            <select id="status" name="status">
-              <option >TODO</option>
-              <option >In PROGRESS</option>
-              <option >DONE</option>
-            </select>
-          </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status" formControlName="status">
+            <option [value]="TaskStatus.TODO">{{ TaskStatus.TODO }}</option>
+            <option [value]="TaskStatus.IN_PROGRESS">
+              {{ TaskStatus.IN_PROGRESS }}
+            </option>
+            <option [value]="TaskStatus.DONE">{{ TaskStatus.DONE }}</option>
+          </select>
         </div>
-
         <div class="form-group">
           <label for="category">Category</label>
-          <select id="category" name="category" >
+          <select id="category" formControlName="categoryId">
             <option value="">No Category</option>
-            <option >
-            title
+            <option
+              *ngFor="let category of categories$ | async"
+              [value]="category.id"
+            >
+              {{category.title}}
             </option>
           </select>
         </div>
-
-        <div class="form-actions">
-          <button type="button" class="btn btn-secondary" (click)="goBack()">
-            Cancel
-          </button>
-          <button type="submit" class="btn btn-primary" >
-            {{isEditMode ? 'Update Task' : 'Create Task'}}
-          </button>
-        </div>
       </div>
-    </form>
-  </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" (click)="goBack()">
+          Cancel
+        </button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="taskForm.invalid || (taskService.loading$ | async)"
+        >
+          {{(taskService.loading$ | async) ? 'Saving...' : (isEditMode ?
+          'UpdateTask' : 'Create Task')}}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
