@@ -1,56 +1,65 @@
 <div class="category-form-container">
-    <div class="form-header">
-      <h1>{{isEditMode ? 'Edit Category' : 'Create New Category'}}</h1>
-      <button class="btn btn-secondary" (click)="goBack()">
-        ← Back to Categories
-      </button>
-    </div>
+  <div class="form-header">
+    <h1>{{isEditMode ? 'Edit Category' : 'Create New Category'}}</h1>
+    <button class="btn btn-secondary" (click)="goBack()">
+      ← Back to Categories
+    </button>
+  </div>
 
-    <form class="category-form" (ngSubmit)="onSubmit()" #categoryForm="ngForm">
-      <div class="form-card">
-        <div class="form-group">
-          <label for="title">Category Title *</label>
-          <input 
-            type="text" 
-            id="title" 
-            name="title"
+  <div class="error-message" *ngIf="categoryService.error$ | async as error">
+    {{error}}
+  </div>
 
-            required
-            placeholder="Enter category title">
-          <!-- <div class="error-message" *ngIf="titleField.invalid && titleField.touched"> -->
-            <div class="error-message" >
-            Category title is required
-          </div>
+  <form
+    class="category-form"
+    (ngSubmit)="onSubmit()"
+    [formGroup]="categoryForm"
+  >
+    <div class="form-card">
+      <div class="form-group">
+        <label for="title">Category Title *</label>
+        <input
+          type="text"
+          id="title"
+          formControlName="title"
+          required
+          placeholder="Enter category title"
+        />
+        <div
+          class="error-message"
+          *ngIf="categoryForm.get('title')?.invalid && categoryForm.get('title')?.touched"
+        >
+          <div class="error-message">Category title is required</div>
         </div>
 
         <div class="form-group">
           <label for="description">Description</label>
-          <textarea 
-            id="description" 
-            name="description"
-          
+          <textarea
+            id="description"
+            formControlName="description"
             rows="4"
-            placeholder="Enter category description"></textarea>
+            placeholder="Enter category description"
+          ></textarea>
         </div>
 
         <div class="form-group">
           <label for="color">Color</label>
           <div class="color-picker-group">
-            <input 
-              type="color" 
-              id="color" 
-              name="color"
-             
-              class="color-input">
+            <input
+              type="color"
+              id="color"
+              formControlName="color"
+              class="color-input"
+            />
             <div class="color-presets">
-              <button 
+              <button
                 type="button"
-             
+                *ngFor="let color of colorPresets"
                 class="color-preset"
-              
-                (click)="selectColor('#FF5733')"
-                >
-              </button>
+                [style.backgroundColor]="color"
+                (click)="selectColor(color)"
+                [class.selected]="categoryForm.get('color')?.value === color"
+              ></button>
             </div>
           </div>
         </div>
@@ -59,10 +68,16 @@
           <button type="button" class="btn btn-secondary" (click)="goBack()">
             Cancel
           </button>
-          <button type="submit" class="btn btn-primary" [disabled]="!categoryForm.form.valid">
-            {{isEditMode ? 'Update Category' : 'Create Category'}}
+          <button
+            type="submit"
+            class="btn btn-primary"
+            [disabled]="!categoryForm.valid || (categoryService.loading$ | async)"
+          >
+            {{(categoryService.loading$ | async) ? 'Saving...' : (isEditMode ?
+            'Update Category' : 'Create Category')}}
           </button>
         </div>
       </div>
-    </form>
-  </div>
+    </div>
+  </form>
+</div>

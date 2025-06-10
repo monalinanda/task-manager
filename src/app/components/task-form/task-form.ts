@@ -29,7 +29,7 @@ import { CommonModule } from '@angular/common';
 export class TaskForm {
   taskForm!: FormGroup;
   isEditMode = false;
-  taskId?: string;
+  taskId: string | null = null;
   categories$: Observable<Category[]>;
 
   TaskStatus = TaskStatus;
@@ -48,13 +48,13 @@ export class TaskForm {
   ngOnInit() {
     this.taskForm = this.fb.group({
       title: ['', Validators.required],
-      description: [''],
+      description: ['', Validators.required],
       dueDate: ['', Validators.required],
       priority: [TaskPriority.MEDIUM],
       status: [TaskStatus.TODO],
       categoryId: '',
     });
-    this.taskId = this.route.snapshot.paramMap.get('id') || undefined;
+    this.taskId = this.route.snapshot.paramMap.get('id');
     this.isEditMode = !!this.taskId;
 
     if (this.isEditMode && this.taskId) {
@@ -65,11 +65,9 @@ export class TaskForm {
             ...task,
             dueDate: new Date(task.dueDate).toISOString().split('T')[0],
           });
-          // this.dueDateString = this.formatDateForInput(task.dueDate);
         }
       });
     } else {
-      // Set default due date to tomorrow
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       this.taskForm.value.dueDate = this.formatDateForInput(tomorrow);

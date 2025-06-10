@@ -27,12 +27,8 @@ export class TaskService {
   private errorSubject = new BehaviorSubject<string | null>(null);
   private filterSubject = new BehaviorSubject<TaskFilter>({});
   private sortSubject = new BehaviorSubject<TaskSort>({
-    field: 'createdAt',
-    direction: 'desc',
-  });
-  private pageSubject = new BehaviorSubject<{ page: number; size: number }>({
-    page: 1,
-    size: 6,
+    field: 'title',
+    direction: 'asc',
   });
 
   tasks$ = this.tasksSubject.asObservable();
@@ -40,7 +36,6 @@ export class TaskService {
   error$ = this.errorSubject.asObservable();
   filter$ = this.filterSubject.asObservable();
   sort$ = this.sortSubject.asObservable();
-  page$ = this.pageSubject.asObservable();
 
   filteredAndSortedTasks$ = combineLatest([
     this.tasks$,
@@ -49,29 +44,15 @@ export class TaskService {
   ]).pipe(
     map(([tasks, filter, sort]) => {
       let filtered = this.applyFilter(tasks, filter);
-      console.log(filtered, 'filtered');
-      return this.applySort(filtered, sort);
-    })
-  );
-
-  paginatedTasks$ = combineLatest([
-    this.filteredAndSortedTasks$,
-    this.page$,
-  ]).pipe(
-    map(([tasks, pagination]) => {
-      const startIndex = (pagination.page - 1) * pagination.size;
-      const endIndex = startIndex + pagination.size;
+      // console.log(filtered,"filtered")
       return {
-        tasks: tasks.slice(startIndex, endIndex),
-        totalTasks: tasks.length,
-        totalPages: Math.ceil(tasks.length / pagination.size),
-        currentPage: pagination.page,
+        tasks: this.applySort(filtered, sort),
+        //tasks: this.applyFilter(tasks, filter),
       };
     })
   );
 
   constructor() {
-    // Load tasks on service initialization
     this.loadTasks();
   }
 
@@ -102,8 +83,11 @@ export class TaskService {
   }
 
   getTaskById(id: string): Observable<Task | undefined> {
-    return this.tasks$.pipe(
-      map((tasks) => tasks.find((task) => task.id === id))
+    return from(supabase.from('tasks').select('*').eq('id', id).single()).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return this.mapDatabaseTaskToTask(data);
+      })
     );
   }
 
@@ -205,15 +189,10 @@ export class TaskService {
 
   setFilter(filter: TaskFilter): void {
     this.filterSubject.next(filter);
-    this.pageSubject.next({ ...this.pageSubject.value, page: 1 });
   }
 
   setSort(sort: TaskSort): void {
     this.sortSubject.next(sort);
-  }
-
-  setPage(page: number): void {
-    this.pageSubject.next({ ...this.pageSubject.value, page });
   }
 
   private mapDatabaseTaskToTask(dbTask: any): Task {
@@ -252,10 +231,7 @@ export class TaskService {
       let aValue: any = a[sort.field];
       let bValue: any = b[sort.field];
 
-      if (sort.field === 'dueDate' || sort.field === 'createdAt') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else if (typeof aValue === 'string') {
+      if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }

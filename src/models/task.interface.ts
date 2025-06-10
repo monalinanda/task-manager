@@ -32,7 +32,7 @@ export interface TaskFilter {
 }
 
 export interface TaskSort {
-  field: 'title' | 'dueDate' | 'status' | 'createdAt';
+  field: 'title' | 'status';
   direction: 'asc' | 'desc';
 }
 

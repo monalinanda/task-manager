@@ -1,113 +1,190 @@
 <div class="task-list-container">
   <div class="header">
-    <h1>Task Manager</h1>
+    <div class="header-left">
+      <h3>Tasks</h3>
+      <div class="filter-group">
+        <input
+          type="text"
+          [(ngModel)]="currentFilter.title"
+          (ngModelChange)="applyFilters()"
+          placeholder="Search tasks..."
+        />
+      </div>
+    </div>
     <button class="btn btn-primary" (click)="navigateToCreateTask()">
       <span class="icon">+</span>
       New Task
     </button>
   </div>
 
+  <!-- loading taks -->
+  <div class="loading-state" *ngIf="taskService.loading$ | async ">
+    <div class="loading-spinner">Loading tasks...</div>
+  </div>
+
+  <!-- error state -->
+  <div class="error-state" *ngIf="taskService.error$ | async as error">
+    <div class="error-message">{{error}}</div>
+    <button class="btn btn-secondary" (click)="retryLoad()">Retry</button>
+  </div>
+
   <!--filter -->
   <div class="filters-card">
-    <h3>Filters & Sorting</h3>
+    <h5>Filters & Sorting</h5>
+
     <div class="filters-grid">
       <div class="filter-group">
-        <label>Status</label>
-        <select>
-          <option value="">All Statuses</option>
-          <option>To Do</option>
-          <option>In Progress</option>
-          <option>Done</option>
+        <label>Status:</label>
+        <select
+          [(ngModel)]="currentFilter.status"
+          (ngModelChange)="applyFilters()"
+        >
+          <option [ngValue]="undefined">All Statuses</option>
+          <option [value]="TaskStatus.TODO">To Do</option>
+          <option [value]="TaskStatus.IN_PROGRESS">In Progress</option>
+          <option [value]="TaskStatus.DONE">Done</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Priority:</label>
+        <select
+          [(ngModel)]="currentFilter.priority"
+          (ngModelChange)="applyFilters()"
+        >
+          <option [ngValue]="undefined">All Priorities</option>
+          <option [value]="TaskPriority.LOW">Low</option>
+          <option [value]="TaskPriority.MEDIUM">Medium</option>
+          <option [value]="TaskPriority.HIGH">High</option>
         </select>
       </div>
 
       <div class="filter-group">
-        <label>Category</label>
-        <select>
-          <option value="">All Categories</option>
-          <!-- <option *ngFor="let category of categories$ | async" [value]="category.id">
-                {{category.title}}
-              </option> -->
+        <label>Category:</label>
+        <select
+          [(ngModel)]="currentFilter.categoryId"
+          (ngModelChange)="applyFilters()"
+        >
+          <option [ngValue]="''">All Categories</option>
+          <option
+            *ngFor="let category of categories$ | async"
+            [value]="category.id"
+          >
+            {{category.title}}
+          </option>
         </select>
       </div>
 
       <div class="filter-group">
-        <label>Search Title</label>
-        <input type="text" placeholder="Search tasks..." />
+        <label>Due date from:</label>
+        <input
+          type="date"
+          [(ngModel)]="dateFromInput"
+          (ngModelChange)="applyFilters()"
+        />
       </div>
 
       <div class="filter-group">
-        <label>Sort By</label>
-        <select>
-          <option value="title">Title</option>
-          <option value="dueDate">Due Date</option>
-          <option value="status">Status</option>
-          <option value="createdAt">Created Date</option>
-        </select>
+        <label>Due date to:</label>
+        <input
+          type="date"
+          [(ngModel)]="dateToInput"
+          (ngModelChange)="applyFilters()"
+        />
       </div>
-
-      <div class="filter-group">
-        <label>Order</label>
-        <select>
-          <option value="asc">Ascending</option>
-          <option value="desc">Descending</option>
-        </select>
+    </div>
+    <div class="sort-buttons-group">
+      <div class="sort-buttons">
+        <label>Sort by:</label>
+        <button class="sort-btn" (click)="toggleSort('title')">
+          Title
+          <span class="sort-arrow">
+            {{ currentSort.field === 'title' ? (currentSort.direction === 'asc'
+            ? '↑' : '↓') : '' }}
+          </span>
+        </button>
+        <button class="sort-btn" (click)="toggleSort('status')">
+          Status
+          <span class="sort-arrow">
+            {{ currentSort.field === 'status' ? (currentSort.direction === 'asc'
+            ? '↑' : '↓') : '' }}
+          </span>
+        </button>
       </div>
-
-      <div class="filter-group">
-        <button class="btn btn-secondary">Clear All</button>
-      </div>
+      <button class="btn btn-secondary" (click)="clearFilters()">
+        Reset Filters
+      </button>
     </div>
   </div>
 
   <!-- task card -->
-  <div class="tasks-grid">
-    <div class="task-card">
+  <div class="tasks-grid" *ngIf="filteredAndSortedTasks$| async as result">
+    <div
+      class="task-card"
+      *ngFor="let task of result.tasks"
+      [class.overdue]="isOverdue(task.dueDate)"
+      [class.high-priority]="task.priority === TaskPriority.HIGH"
+      (click)="editTask(task.id)"
+    >
       <div class="task-header">
-        <h3>title</h3>
+        <div class="task-title">
+          <h4>{{task.title}}</h4>
+          <span class="status-badge" [class]="getStatusClass(task.status)">
+            {{task.status}}
+          </span>
+        </div>
         <div class="task-actions">
-          <button class="btn-icon">✏️</button>
-          <button class="btn-icon delete">🗑️</button>
+          <button
+            class="btn-icon"
+            (click)="editTask(task.id); $event.stopPropagation()"
+          >
+            ✏️
+          </button>
+          <button
+            class="btn-icon delete"
+            (click)="deleteTask(task.id); $event.stopPropagation()"
+          >
+            🗑️
+          </button>
         </div>
       </div>
 
-      <p class="task-description">description</p>
+      <p class="task-description">{{task.description}}</p>
 
       <div class="task-meta">
-        <span class="status-badge"> status </span>
-        <span class="due-date"> Due: date </span>
+        <div class="date-row">
+          <lucide-angular [img]="calendarIcon" size="16"></lucide-angular>
+          <span class="due-date" [class.overdue]="isOverdue(task.dueDate)">
+            {{task.dueDate | date: 'dd.MM.yyyy'}} {{isOverdue(task.dueDate) ?
+            '(Overdue)' : ''}}
+          </span>
+        </div>
+        <div
+          class="task-category"
+          *ngIf="getCategoryName(task.categoryId) | async as categoryName"
+        >
+          <span
+            class="category-tag"
+            [style.background-color]="getCategoryColor(task.categoryId) | async"
+          >
+            {{categoryName}}
+          </span>
+        </div>
       </div>
 
-      <div class="task-category">
-        <span class="category-tag"> categoryName </span>
+      <div class="badges">
+        Priority:
+        <span class="priority-badge" [class]="getPriorityClass(task.priority)">
+          {{task.priority}}
+        </span>
       </div>
     </div>
     <!-- Empty State -->
-    <div class="empty-state">
+    <div class="empty-state" *ngIf="result.tasks.length === 0">
       <div class="empty-icon">📝</div>
       <h3>No tasks found</h3>
       <p>Create your first task or adjust your filters to see tasks here.</p>
       <button class="btn btn-primary" (click)="navigateToCreateTask()">
         Create Task
-      </button>
-    </div>
-
-
-    <div class="pagination" >
-      <button class="btn btn-secondary" 
-      (click)="previousPage()"
-              >
-        Previous
-      </button>
-      
-      <span class="page-info">
-       total tasks
-      </span>
-      
-      <button class="btn btn-secondary" 
-              
-              (click)="nextPage()">
-        Next
       </button>
     </div>
   </div>
