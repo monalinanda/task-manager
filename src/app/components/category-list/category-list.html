@@ -45,74 +45,88 @@
         </button>
       </div>
       <button class="btn btn-secondary" (click)="clearFilters()">
-        Clear Filters
+        Reset Filters
       </button>
     </div>
   </div>
 
   <!-- category card -->
-  <div class="categories-grid" *ngIf="categories$ | async as result">
-    <div class="loading-state" *ngIf="categoryService.loading$ | async">
-      <span class="loader"></span>
-    </div>
-
-    <div class="category-card" *ngFor="let category of result.data">
-      <div class="category-header">
-        <div
-          class="category-color"
-          [style.background-color]="category.color"
-        ></div>
-        <h3>{{category.title}}</h3>
-        <div class="category-actions">
-          <button
-            class="btn-icon"
-            (click)="editCategory(category.id); $event.stopPropagation()"
-          >
-            ✏️
-          </button>
-          <button
-            class="btn-icon delete"
-            (click)="deleteCategory(category.id); $event.stopPropagation()"
-          >
-            🗑️
-          </button>
-        </div>
+  <div *ngIf="categories$ | async as result">
+    <div class="categories-grid">
+      <div class="loading-state" *ngIf="categoryService.loading$ | async">
+        <span class="loader"></span>
       </div>
 
-      <p class="category-description">{{category.description}}</p>
-
-      <div class="category-stats">
-        <div class="stat">
-          <span class="stat-number">{{category.tasks?.length || 0}}</span>
-          <span class="stat-label">Tasks</span>
+      <div class="category-card" *ngFor="let category of result.data">
+        <div class="category-header">
+          <div
+            class="category-color"
+            [style.background-color]="category.color"
+          ></div>
+          <h3>{{category.title}}</h3>
+          <div class="category-actions">
+            <button
+              class="btn-icon"
+              (click)="editCategory(category.id); $event.stopPropagation()"
+            >
+              ✏️
+            </button>
+            <button
+              class="btn-icon delete"
+              (click)="deleteCategory(category.id); $event.stopPropagation()"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
-        <div class="stat">
-          <span class="stat-date">{{formatDate(category.createdAt)}}</span>
-          <span class="stat-label">Created</span>
-        </div>
-      </div>
 
-      <!-- Category Tasks Preview -->
-      <div
-        class="category-tasks"
-        *ngIf="category.tasks && category.tasks.length > 0"
-      >
-        <h4>Recent Tasks</h4>
+        <p class="category-description">{{category.description}}</p>
+
+        <div class="category-stats">
+          <div class="stat">
+            <span class="stat-number">{{category.tasks?.length || 0}}</span>
+            <span class="stat-label">Tasks</span>
+          </div>
+          <div class="stat">
+            <span class="stat-date">{{formatDate(category.createdAt)}}</span>
+            <span class="stat-label">Created</span>
+          </div>
+        </div>
+
+        <!-- Category Tasks Preview -->
         <div
-          class="task-preview"
-          *ngFor="let task of category.tasks.slice(0, 3)"
+          class="category-tasks"
+          *ngIf="category.tasks && category.tasks.length > 0"
         >
-          <span class="task-title">{{task.title}}</span>
-          <span class="task-status" [class]="getStatusClass(task.status)"
-            >{{task.status}}</span
+          <h4>Recent Tasks</h4>
+          <div
+            class="task-preview"
+            *ngFor="let task of category.tasks.slice(0, 3)"
           >
-        </div>
-        <div class="more-tasks" *ngIf="category.tasks.length > 3">
-          +{{category.tasks.length - 3}} more tasks
+            <span class="task-title">{{task.title}}</span>
+            <span class="task-status" [class]="getStatusClass(task.status)"
+              >{{task.status}}</span
+            >
+          </div>
+          <div class="more-tasks" *ngIf="category.tasks.length > 3">
+            +{{category.tasks.length - 3}} more tasks
+          </div>
         </div>
       </div>
-    </div>
 
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="result.data.length === 0">
+        <div class="empty-icon">📁</div>
+        <h3>No categories found</h3>
+        <p>
+          Create your first category or adjust your filters to see categories
+          here.
+        </p>
+        <button class="btn btn-primary" (click)="navigateToCreateCategory()">
+          Create Category
+        </button>
+      </div>
+    </div>
     <!-- Pagination -->
     <div class="pagination" *ngIf="result.total > 0">
       <button
@@ -131,19 +145,6 @@
         (click)="onPageChange(result.page + 1)"
       >
         Next
-      </button>
-    </div>
-
-    <!-- Empty State -->
-    <div class="empty-state" *ngIf="result.data.length === 0">
-      <div class="empty-icon">📁</div>
-      <h3>No categories found</h3>
-      <p>
-        Create your first category or adjust your filters to see categories
-        here.
-      </p>
-      <button class="btn btn-primary" (click)="navigateToCreateCategory()">
-        Create Category
       </button>
     </div>
   </div>

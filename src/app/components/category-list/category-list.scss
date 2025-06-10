@@ -328,6 +328,27 @@
   }
 }
 
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding: 1rem;
+
+  .pagination-info {
+    font-size: 0.9rem;
+    color: #666;
+  }
+
+  button {
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
 @media (max-width: 768px) {
   .category-list-container {
     padding: 1rem;

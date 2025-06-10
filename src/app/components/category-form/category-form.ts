@@ -58,7 +58,7 @@ export class CategoryForm {
         .getCategoryById(this.categoryId)
         .subscribe((category) => {
           if (category) {
-            this.categoryForm.setValue(category);
+            this.categoryForm.patchValue(category);
           }
         });
     }
