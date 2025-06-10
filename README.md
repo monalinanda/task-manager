@@ -1,59 +1,65 @@
-# TaskManager
+# Task Manager
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.0.1.
+## Getting Started
 
-## Development server
-
-To start a local development server, run:
+1. Clone the repository
 
 ```bash
-ng serve
+git clone git@github.com:monalinanda/task-manager.git
+cd task-manager
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+2. Install dependencies
 
 ```bash
-ng generate component component-name
+npm install
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+3. Start the development server
 
 ```bash
-ng generate --help
+npm start
 ```
 
-## Building
+4. Open your browser and navigate to `http://localhost:4200`
 
-To build the project run:
+## Available Scripts
 
-```bash
-ng build
-```
+- `npm start` - Starts the development server
+- `npm run build` - Builds the application for production
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Technologies Used
 
-## Running unit tests
+- Angular 20
+- RxJS
+- Supabase (for backend)
+- Lucide Icons
+- TypeScript
 
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
+## Features
 
-```bash
-ng test
-```
+- **Task Management**
 
-## Running end-to-end tests
+  - Create, edit, and delete tasks
+  - Set task priority (Low, Medium, High)
+  - Track task status (Todo, In Progress, Done)
+  - Set due dates for tasks
+  - Assign categories to task
 
-For end-to-end (e2e) testing, run:
+- **Filtering, Sorting & Searching**
 
-```bash
-ng e2e
-```
+  - Filter tasks by status, priority, and category
+  - Search tasks by title
+  - Date range filtering
+  - Sort tasks by title and status
+  - Clear all filters
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+- **Pagination**
 
-## Additional Resources
+  - Paginated task list view
+  - Configurable page size
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- **Category Management**
+
+  - Create and edit and delete task categories
+  - Assign custom colors to categories
