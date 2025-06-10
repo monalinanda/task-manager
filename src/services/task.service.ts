@@ -5,8 +5,18 @@ import {
   from,
   throwError,
   combineLatest,
+  switchMap,
+  Subject,
+  defer,
 } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import {
+  map,
+  catchError,
+  tap,
+  startWith,
+  debounceTime,
+  distinctUntilChanged,
+} from 'rxjs/operators';
 import { supabase } from '../lib/supabase';
 import {
   Task,
@@ -16,13 +26,14 @@ import {
   TaskSort,
   CreateTaskRequest,
   UpdateTaskRequest,
+  PaginationParams,
+  PaginatedResponse,
 } from '../models/task.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class TaskService {
-  private tasksSubject = new BehaviorSubject<Task[]>([]);
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private errorSubject = new BehaviorSubject<string | null>(null);
   private filterSubject = new BehaviorSubject<TaskFilter>({});
@@ -30,55 +41,122 @@ export class TaskService {
     field: 'title',
     direction: 'asc',
   });
+  private paginationSubject = new BehaviorSubject<PaginationParams>({
+    page: 1,
+    pageSize: 10,
+  });
+  private searchSubject = new Subject<string>();
 
-  tasks$ = this.tasksSubject.asObservable();
   loading$ = this.loadingSubject.asObservable();
   error$ = this.errorSubject.asObservable();
   filter$ = this.filterSubject.asObservable();
   sort$ = this.sortSubject.asObservable();
+  pagination$ = this.paginationSubject.asObservable();
 
-  filteredAndSortedTasks$ = combineLatest([
-    this.tasks$,
-    this.filter$,
-    this.sort$,
-  ]).pipe(
-    map(([tasks, filter, sort]) => {
-      let filtered = this.applyFilter(tasks, filter);
-      // console.log(filtered,"filtered")
-      return {
-        tasks: this.applySort(filtered, sort),
-        //tasks: this.applyFilter(tasks, filter),
-      };
+  // Debounced search
+  private debouncedSearch$ = this.searchSubject.pipe(
+    debounceTime(300),
+    distinctUntilChanged(),
+    tap((searchTerm) => {
+      const currentFilter = this.filterSubject.value;
+      this.filterSubject.next({
+        ...currentFilter,
+        title: searchTerm,
+      });
     })
   );
 
+  // Combined stream for tasks with pagination
+  tasks$ = combineLatest([this.filter$, this.sort$, this.pagination$]).pipe(
+    switchMap(([filter, sort, pagination]) =>
+      this.loadTasks(filter, sort, pagination)
+    )
+  );
+
   constructor() {
-    this.loadTasks();
+    // Subscribe to debounced search
+    this.debouncedSearch$.subscribe();
   }
 
-  private async loadTasks(): Promise<void> {
-    this.loadingSubject.next(true);
-    this.errorSubject.next(null);
+  private loadTasks(
+    filter: TaskFilter,
+    sort: TaskSort,
+    pagination: PaginationParams
+  ): Observable<PaginatedResponse<Task>> {
+    return defer(async () => {
+      this.loadingSubject.next(true);
+      this.errorSubject.next(null);
 
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        // Calculate range for pagination
+        const from = (pagination.page - 1) * pagination.pageSize;
+        const to = from + pagination.pageSize - 1;
 
-      if (error) throw error;
+        // Start building the query
+        let query = supabase.from('tasks').select('*', { count: 'exact' });
 
-      const tasks: Task[] = data.map(this.mapDatabaseTaskToTask);
-      this.tasksSubject.next(tasks);
-    } catch (error: any) {
-      this.errorSubject.next(error.message);
-      console.error('Error loading tasks:', error);
-    } finally {
-      this.loadingSubject.next(false);
-    }
+        // Apply filters
+        if (filter.status) {
+          query = query.eq('status', filter.status);
+        }
+        if (filter.priority) {
+          query = query.eq('priority', filter.priority);
+        }
+        if (filter.categoryId) {
+          query = query.eq('category_id', filter.categoryId);
+        }
+        if (filter.title) {
+          query = query.ilike('title', `%${filter.title}%`);
+        }
+        if (filter.dateFrom) {
+          query = query.gte(
+            'due_date',
+            filter.dateFrom.toISOString().split('T')[0]
+          );
+        }
+        if (filter.dateTo) {
+          query = query.lte(
+            'due_date',
+            filter.dateTo.toISOString().split('T')[0]
+          );
+        }
+
+        // Apply sorting
+        query = query.order(sort.field, {
+          ascending: sort.direction === 'asc',
+        });
+
+        // Apply pagination
+        query = query.range(from, to);
+
+        // Execute query
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+        if (count === null) throw new Error('Could not get count');
+
+        const totalPages = Math.ceil(count / pagination.pageSize);
+
+        return {
+          data: data.map(this.mapDatabaseTaskToTask),
+          total: count,
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          totalPages,
+        };
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+        this.errorSubject.next(errorMessage);
+        console.error('Error loading tasks:', error);
+        throw error;
+      } finally {
+        this.loadingSubject.next(false);
+      }
+    });
   }
 
-  getAllTasks(): Observable<Task[]> {
+  getAllTasks(): Observable<PaginatedResponse<Task>> {
     return this.tasks$;
   }
 
@@ -111,10 +189,7 @@ export class TaskService {
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
-        const newTask = this.mapDatabaseTaskToTask(data);
-        const currentTasks = this.tasksSubject.value;
-        this.tasksSubject.next([newTask, ...currentTasks]);
-        return newTask;
+        return this.mapDatabaseTaskToTask(data);
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -144,15 +219,7 @@ export class TaskService {
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
-        const updatedTask = this.mapDatabaseTaskToTask(data);
-        const currentTasks = this.tasksSubject.value;
-        const taskIndex = currentTasks.findIndex((task) => task.id === id);
-        if (taskIndex !== -1) {
-          const updatedTasks = [...currentTasks];
-          updatedTasks[taskIndex] = updatedTask;
-          this.tasksSubject.next(updatedTasks);
-        }
-        return updatedTask;
+        return this.mapDatabaseTaskToTask(data);
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -169,9 +236,6 @@ export class TaskService {
     return from(supabase.from('tasks').delete().eq('id', id)).pipe(
       map(({ error }) => {
         if (error) throw error;
-        const currentTasks = this.tasksSubject.value;
-        const filteredTasks = currentTasks.filter((task) => task.id !== id);
-        this.tasksSubject.next(filteredTasks);
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -182,8 +246,13 @@ export class TaskService {
   }
 
   getTasksByCategory(categoryId: string): Observable<Task[]> {
-    return this.tasks$.pipe(
-      map((tasks) => tasks.filter((task) => task.categoryId === categoryId))
+    return from(
+      supabase.from('tasks').select('*').eq('category_id', categoryId)
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return data.map(this.mapDatabaseTaskToTask);
+      })
     );
   }
 
@@ -193,6 +262,14 @@ export class TaskService {
 
   setSort(sort: TaskSort): void {
     this.sortSubject.next(sort);
+  }
+
+  setPagination(params: PaginationParams): void {
+    this.paginationSubject.next(params);
+  }
+
+  setSearch(term: string): void {
+    this.searchSubject.next(term);
   }
 
   private mapDatabaseTaskToTask(dbTask: any): Task {
@@ -207,38 +284,5 @@ export class TaskService {
       createdAt: new Date(dbTask.created_at),
       updatedAt: new Date(dbTask.updated_at),
     };
-  }
-
-  private applyFilter(tasks: Task[], filter: TaskFilter): Task[] {
-    return tasks.filter((task) => {
-      if (filter.status && task.status !== filter.status) return false;
-      if (filter.priority && task.priority !== filter.priority) return false;
-      if (
-        filter.title &&
-        !task.title.toLowerCase().includes(filter.title.toLowerCase())
-      )
-        return false;
-      if (filter.categoryId && task.categoryId !== filter.categoryId)
-        return false;
-      if (filter.dateFrom && task.dueDate < filter.dateFrom) return false;
-      if (filter.dateTo && task.dueDate > filter.dateTo) return false;
-      return true;
-    });
-  }
-
-  private applySort(tasks: Task[], sort: TaskSort): Task[] {
-    return [...tasks].sort((a, b) => {
-      let aValue: any = a[sort.field];
-      let bValue: any = b[sort.field];
-
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      if (aValue < bValue) return sort.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sort.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
   }
 }

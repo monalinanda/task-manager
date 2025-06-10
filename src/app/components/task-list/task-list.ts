@@ -11,6 +11,7 @@ import {
   TaskPriority,
   TaskFilter,
   TaskSort,
+  PaginatedResponse,
 } from '../../../models/task.interface';
 import { Category } from '../../../models/category.interface';
 import { CategoryService } from '../../../services/category.service';
@@ -23,7 +24,7 @@ import { CategoryService } from '../../../services/category.service';
 })
 export class TaskList {
   categories$: Observable<Category[]>;
-  filteredAndSortedTasks$: Observable<any>;
+  tasks$: Observable<PaginatedResponse<Task>>;
 
   currentFilter: TaskFilter = {
     status: undefined,
@@ -32,6 +33,8 @@ export class TaskList {
     title: '',
   };
   currentSort: TaskSort = { field: 'title', direction: 'asc' };
+  currentPage = 1;
+  pageSize = 10;
 
   TaskStatus = TaskStatus;
   TaskPriority = TaskPriority;
@@ -47,9 +50,13 @@ export class TaskList {
 
   constructor() {
     this.categories$ = this.categoryService.getAllCategories();
-    this.filteredAndSortedTasks$ = this.taskService.filteredAndSortedTasks$;
+    this.tasks$ = this.taskService.tasks$;
     this.taskService.setFilter(this.currentFilter);
     this.taskService.setSort(this.currentSort);
+    this.taskService.setPagination({
+      page: this.currentPage,
+      pageSize: this.pageSize,
+    });
   }
 
   navigateToCreateTask() {
@@ -73,6 +80,10 @@ export class TaskList {
     window.location.reload();
   }
 
+  onSearch(term: string) {
+    this.taskService.setSearch(term);
+  }
+
   applyFilters() {
     const newFilter = {
       ...this.currentFilter,
@@ -80,10 +91,6 @@ export class TaskList {
       dateTo: this.dateToInput ? new Date(this.dateToInput) : undefined,
     };
     this.taskService.setFilter(newFilter);
-  }
-
-  applySort() {
-    this.taskService.setSort(this.currentSort);
   }
 
   clearFilters() {
@@ -96,8 +103,18 @@ export class TaskList {
     this.currentSort = { field: 'title', direction: 'asc' };
     this.dateFromInput = '';
     this.dateToInput = '';
+    this.currentPage = 1;
     this.taskService.setFilter(this.currentFilter);
     this.taskService.setSort(this.currentSort);
+    this.taskService.setPagination({
+      page: this.currentPage,
+      pageSize: this.pageSize,
+    });
+  }
+
+  onPageChange(page: number) {
+    this.currentPage = page;
+    this.taskService.setPagination({ page, pageSize: this.pageSize });
   }
 
   getStatusClass(status: TaskStatus): string {
