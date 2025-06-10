@@ -80,8 +80,14 @@ export class TaskList {
   deleteTask(id: string) {
     if (confirm('Are you sure you want to delete this task?')) {
       this.taskService.deleteTask(id).subscribe({
-        next: () => console.log('Task deleted successfully'),
-        error: (error) => console.error('Error deleting task:', error),
+        next: () => {
+          console.log('Task deleted successfully');
+          // The list will automatically update due to our reactive setup
+        },
+        error: (error) => {
+          console.error('Error deleting task:', error);
+          alert('Failed to delete task. Please try again.');
+        },
       });
     }
   }

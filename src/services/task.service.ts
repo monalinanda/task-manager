@@ -241,7 +241,10 @@ export class TaskService {
         this.errorSubject.next(error.message);
         return throwError(() => error);
       }),
-      tap(() => this.loadingSubject.next(false))
+      tap(() => {
+        this.loadingSubject.next(false);
+        this.filterSubject.next({ ...this.filterSubject.value });
+      })
     );
   }
 
