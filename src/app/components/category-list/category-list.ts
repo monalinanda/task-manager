@@ -9,7 +9,6 @@ import {
   CategorySort,
   PaginatedResponse,
 } from '../../../models/category.interface';
-import { Task } from '../../../models/task.interface';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -36,7 +35,6 @@ export class CategoryList implements OnInit {
   }
 
   ngOnInit() {
-    // Set initial pagination
     this.categoryService.setPagination({
       page: this.currentPage,
       pageSize: this.pageSize,
@@ -56,7 +54,6 @@ export class CategoryList implements OnInit {
       this.categoryService.deleteCategory(id).subscribe({
         next: () => {
           console.log('Category deleted successfully');
-          // Refresh the current page
           this.onPageChange(this.currentPage);
         },
         error: (error) => console.error('Error deleting category:', error),
@@ -69,7 +66,7 @@ export class CategoryList implements OnInit {
   }
 
   applyFilters() {
-    this.currentPage = 1; // Reset to first page when filters change
+    this.currentPage = 1;
     this.categoryService.setPagination({
       page: this.currentPage,
       pageSize: this.pageSize,

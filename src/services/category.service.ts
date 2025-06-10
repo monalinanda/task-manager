@@ -57,7 +57,7 @@ export class CategoryService {
         if (error) throw error;
         return data.map(this.mapDatabaseCategoryToCategory);
       }),
-      shareReplay(1) // Cache the result
+      shareReplay(1)
     )
   );
 
@@ -69,7 +69,6 @@ export class CategoryService {
     .asObservable()
     .pipe(distinctUntilChanged());
 
-  // Debounced search
   private debouncedSearch$ = this.searchSubject.pipe(
     debounceTime(300),
     distinctUntilChanged(),
@@ -82,7 +81,6 @@ export class CategoryService {
     })
   );
 
-  // Combined stream for categories with pagination
   categories$ = combineLatest([
     this.filter$,
     this.sort$,
@@ -94,7 +92,6 @@ export class CategoryService {
   );
 
   constructor() {
-    // Subscribe to debounced search
     this.debouncedSearch$.subscribe();
   }
 
@@ -116,11 +113,9 @@ export class CategoryService {
       this.errorSubject.next(null);
 
       try {
-        // Calculate range for pagination
         const from = (pagination.page - 1) * pagination.pageSize;
         const to = from + pagination.pageSize - 1;
 
-        // Start building the query
         let query = supabase.from('categories').select(
           `
             *,
@@ -135,22 +130,21 @@ export class CategoryService {
           { count: 'exact' }
         );
 
-        // Apply filters
         if (filter.title) {
           query = query.ilike('title', `%${filter.title}%`);
         }
 
-        // Apply sorting
+        // sorting
         const sortField =
           sort.field === 'createdAt' ? 'created_at' : sort.field;
         query = query.order(sortField, {
           ascending: sort.direction === 'asc',
         });
 
-        // Apply pagination
+        // pagination
         query = query.range(from, to);
 
-        // Execute query
+        // query
         const { data, error, count } = await query;
 
         if (error) throw error;

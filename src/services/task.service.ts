@@ -66,7 +66,6 @@ export class TaskService {
     })
   );
 
-  // Combined stream for tasks with pagination
   tasks$ = combineLatest([this.filter$, this.sort$, this.pagination$]).pipe(
     switchMap(([filter, sort, pagination]) =>
       this.loadTasks(filter, sort, pagination)
@@ -74,7 +73,6 @@ export class TaskService {
   );
 
   constructor() {
-    // Subscribe to debounced search
     this.debouncedSearch$.subscribe();
   }
 
@@ -88,11 +86,9 @@ export class TaskService {
       this.errorSubject.next(null);
 
       try {
-        // Calculate range for pagination
         const from = (pagination.page - 1) * pagination.pageSize;
         const to = from + pagination.pageSize - 1;
 
-        // Start building the query
         let query = supabase.from('tasks').select('*', { count: 'exact' });
 
         // Apply filters
@@ -121,15 +117,14 @@ export class TaskService {
           );
         }
 
-        // Apply sorting
+        // sorting
         query = query.order(sort.field, {
           ascending: sort.direction === 'asc',
         });
 
-        // Apply pagination
+        // pagination
         query = query.range(from, to);
 
-        // Execute query
         const { data, error, count } = await query;
 
         if (error) throw error;
