@@ -5,8 +5,8 @@
       <div class="filter-group">
         <input
           type="text"
-          [(ngModel)]="currentFilter.title"
-          (ngModelChange)="applyFilters()"
+          [ngModel]="currentFilter.title"
+          (ngModelChange)="onSearch($event)"
           placeholder="Search categories..."
         />
       </div>
@@ -15,6 +15,12 @@
       <span class="icon">+</span>
       New Category
     </button>
+  </div>
+
+  <!-- error state -->
+  <div class="error-state" *ngIf="categoryService.error$ | async as error">
+    <div class="error-message">{{error}}</div>
+    <button class="btn btn-secondary" (click)="applyFilters()">Retry</button>
   </div>
 
   <!-- filter -->
@@ -43,12 +49,14 @@
       </button>
     </div>
   </div>
+
   <!-- category card -->
-  <div
-    class="categories-grid"
-    *ngIf="filteredAndSortedCategories$ | async as result"
-  >
-    <div class="category-card" *ngFor="let category of result.categories">
+  <div class="categories-grid" *ngIf="categories$ | async as result">
+    <div class="loading-state" *ngIf="categoryService.loading$ | async">
+      <span class="loader"></span>
+    </div>
+
+    <div class="category-card" *ngFor="let category of result.data">
       <div class="category-header">
         <div
           class="category-color"
@@ -75,9 +83,7 @@
 
       <div class="category-stats">
         <div class="stat">
-          <span class="stat-number"
-            >{{getCategoryTaskCount(category.id) | async}}</span
-          >
+          <span class="stat-number">{{category.tasks?.length || 0}}</span>
           <span class="stat-label">Tasks</span>
         </div>
         <div class="stat">
@@ -89,26 +95,53 @@
       <!-- Category Tasks Preview -->
       <div
         class="category-tasks"
-        *ngIf="getCategoryTasks(category.id) | async as tasks"
+        *ngIf="category.tasks && category.tasks.length > 0"
       >
-        <h4 *ngIf="tasks.length >0">Recent Tasks</h4>
-        <div class="task-preview" *ngFor="let task of tasks.slice(0, 3)">
+        <h4>Recent Tasks</h4>
+        <div
+          class="task-preview"
+          *ngFor="let task of category.tasks.slice(0, 3)"
+        >
           <span class="task-title">{{task.title}}</span>
           <span class="task-status" [class]="getStatusClass(task.status)"
             >{{task.status}}</span
           >
         </div>
-        <div class="more-tasks" *ngIf="tasks.length > 3">
-          +{{tasks.length - 3}} more tasks
+        <div class="more-tasks" *ngIf="category.tasks.length > 3">
+          +{{category.tasks.length - 3}} more tasks
         </div>
       </div>
     </div>
 
+    <!-- Pagination -->
+    <div class="pagination" *ngIf="result.total > 0">
+      <button
+        class="btn btn-secondary"
+        [disabled]="result.page === 1"
+        (click)="onPageChange(result.page - 1)"
+      >
+        Previous
+      </button>
+      <span class="pagination-info">
+        Page {{result.page}} of {{result.totalPages}} ({{result.total}} items)
+      </span>
+      <button
+        class="btn btn-secondary"
+        [disabled]="result.page === result.totalPages"
+        (click)="onPageChange(result.page + 1)"
+      >
+        Next
+      </button>
+    </div>
+
     <!-- Empty State -->
-    <div class="empty-state" *ngIf="result.categories.length === 0">
+    <div class="empty-state" *ngIf="result.data.length === 0">
       <div class="empty-icon">📁</div>
       <h3>No categories found</h3>
-      <p>Create your first category to organize your tasks better.</p>
+      <p>
+        Create your first category or adjust your filters to see categories
+        here.
+      </p>
       <button class="btn btn-primary" (click)="navigateToCreateCategory()">
         Create Category
       </button>

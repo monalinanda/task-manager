@@ -1,12 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs';
 import { CategoryService } from '../../../services/category.service';
 import { TaskService } from '../../../services/task.service';
 import {
+  Category,
   CategoryFilter,
   CategorySort,
+  PaginatedResponse,
 } from '../../../models/category.interface';
 import { Task } from '../../../models/task.interface';
 import { CommonModule } from '@angular/common';
@@ -18,19 +19,28 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './category-list.html',
   styleUrl: './category-list.scss',
 })
-export class CategoryList {
-  filteredAndSortedCategories$: Observable<any>;
+export class CategoryList implements OnInit {
+  categories$: Observable<PaginatedResponse<Category>>;
 
   currentFilter: CategoryFilter = {};
   currentSort: CategorySort = { field: 'title', direction: 'asc' };
+  currentPage = 1;
+  pageSize = 10;
 
   constructor(
-    private categoryService: CategoryService,
+    public categoryService: CategoryService,
     private taskService: TaskService,
     private router: Router
   ) {
-    this.filteredAndSortedCategories$ =
-      this.categoryService.filteredAndSortedCategories$;
+    this.categories$ = this.categoryService.categories$;
+  }
+
+  ngOnInit() {
+    // Set initial pagination
+    this.categoryService.setPagination({
+      page: this.currentPage,
+      pageSize: this.pageSize,
+    });
   }
 
   navigateToCreateCategory() {
@@ -42,16 +52,28 @@ export class CategoryList {
   }
 
   deleteCategory(id: string) {
-    if (confirm('Are you sure you want to delete this task?')) {
+    if (confirm('Are you sure you want to delete this category?')) {
       this.categoryService.deleteCategory(id).subscribe({
-        next: () => console.log('Category deleted successfully'),
-        error: (error) => console.error('Error deleting task:', error),
+        next: () => {
+          console.log('Category deleted successfully');
+          // Refresh the current page
+          this.onPageChange(this.currentPage);
+        },
+        error: (error) => console.error('Error deleting category:', error),
       });
     }
   }
 
+  onSearch(term: string) {
+    this.categoryService.setSearch(term);
+  }
+
   applyFilters() {
-    this.categoryService.setFilter(this.currentFilter);
+    this.currentPage = 1; // Reset to first page when filters change
+    this.categoryService.setPagination({
+      page: this.currentPage,
+      pageSize: this.pageSize,
+    });
   }
 
   toggleSort(field: 'title' | 'createdAt') {
@@ -69,26 +91,21 @@ export class CategoryList {
   clearFilters() {
     this.currentFilter = {};
     this.currentSort = { field: 'title', direction: 'asc' };
+    this.currentPage = 1;
     this.categoryService.setFilter(this.currentFilter);
     this.categoryService.setSort(this.currentSort);
+    this.categoryService.setPagination({
+      page: this.currentPage,
+      pageSize: this.pageSize,
+    });
   }
 
-  previousPage() {
-    this.categoryService.setPage(1); // Simplified for demo
-  }
-
-  nextPage() {
-    this.categoryService.setPage(2); // Simplified for demo
-  }
-
-  getCategoryTaskCount(categoryId: string): Observable<number> {
-    return this.taskService
-      .getTasksByCategory(categoryId)
-      .pipe(map((tasks) => tasks.length));
-  }
-
-  getCategoryTasks(categoryId: string): Observable<Task[]> {
-    return this.taskService.getTasksByCategory(categoryId);
+  onPageChange(page: number) {
+    this.currentPage = page;
+    this.categoryService.setPagination({
+      page,
+      pageSize: this.pageSize,
+    });
   }
 
   formatDate(date: Date): string {

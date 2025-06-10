@@ -112,71 +112,84 @@
   </div>
 
   <!-- task card -->
-  <div class="tasks-grid" *ngIf="tasks$ | async as result">
-    <div class="loading-state" *ngIf="taskService.loading$ | async ">
-      <span class="loader"></span>
-    </div>
-    <div
-      class="task-card"
-      *ngFor="let task of result.data"
-      [class.overdue]="isOverdue(task.dueDate)"
-      [class.high-priority]="task.priority === TaskPriority.HIGH"
-      (click)="editTask(task.id)"
-    >
-      <div class="task-header">
-        <div class="task-title">
-          <h4>{{task.title}}</h4>
-          <span class="status-badge" [class]="getStatusClass(task.status)">
-            {{task.status}}
-          </span>
-        </div>
-        <div class="task-actions">
-          <button
-            class="btn-icon"
-            (click)="editTask(task.id); $event.stopPropagation()"
-          >
-            ✏️
-          </button>
-          <button
-            class="btn-icon delete"
-            (click)="deleteTask(task.id); $event.stopPropagation()"
-          >
-            🗑️
-          </button>
-        </div>
+  <div *ngIf="tasks$ | async as result">
+    <div class="tasks-grid">
+      <div class="loading-state" *ngIf="taskService.loading$ | async ">
+        <span class="loader"></span>
       </div>
-
-      <p class="task-description">{{task.description}}</p>
-
-      <div class="task-meta">
-        <div class="date-row">
-          <lucide-angular [img]="calendarIcon" size="16"></lucide-angular>
-          <span class="due-date" [class.overdue]="isOverdue(task.dueDate)">
-            {{task.dueDate | date: 'dd.MM.yyyy'}} {{isOverdue(task.dueDate) ?
-            '(Overdue)' : ''}}
-          </span>
+      <div
+        class="task-card"
+        *ngFor="let task of result.data"
+        [class.overdue]="isOverdue(task.dueDate)"
+        [class.high-priority]="task.priority === TaskPriority.HIGH"
+      >
+        <div class="task-header">
+          <div class="task-title">
+            <h4>{{task.title}}</h4>
+            <span class="status-badge" [class]="getStatusClass(task.status)">
+              {{task.status}}
+            </span>
+          </div>
+          <div class="task-actions">
+            <button
+              class="btn-icon"
+              (click)="editTask(task.id); $event.stopPropagation()"
+            >
+              ✏️
+            </button>
+            <button
+              class="btn-icon delete"
+              (click)="deleteTask(task.id); $event.stopPropagation()"
+            >
+              🗑️
+            </button>
+          </div>
         </div>
-        <div
-          class="task-category"
-          *ngIf="getCategoryName(task.categoryId) | async as categoryName"
-        >
+
+        <p class="task-description">{{task.description}}</p>
+
+        <div class="task-meta">
+          <div class="date-row">
+            <lucide-angular [img]="calendarIcon" size="16"></lucide-angular>
+            <span class="due-date" [class.overdue]="isOverdue(task.dueDate)">
+              {{task.dueDate | date: 'dd.MM.yyyy'}} {{isOverdue(task.dueDate) ?
+              '(Overdue)' : ''}}
+            </span>
+          </div>
+          <div
+            class="task-category"
+            *ngIf="getCategoryName(task.categoryId) | async as categoryName"
+          >
+            <span
+              class="category-tag"
+              [style.background-color]="getCategoryColor(task.categoryId) | async"
+            >
+              {{categoryName}}
+            </span>
+          </div>
+        </div>
+
+        <div class="badges">
+          Priority:
           <span
-            class="category-tag"
-            [style.background-color]="getCategoryColor(task.categoryId) | async"
+            class="priority-badge"
+            [class]="getPriorityClass(task.priority)"
           >
-            {{categoryName}}
+            {{task.priority}}
           </span>
         </div>
       </div>
 
-      <div class="badges">
-        Priority:
-        <span class="priority-badge" [class]="getPriorityClass(task.priority)">
-          {{task.priority}}
-        </span>
+      <!-- Empty State -->
+      <div class="empty-state" *ngIf="result.data.length === 0">
+        <div class="empty-icon">📝</div>
+        <h3>No tasks found</h3>
+        <p>Create your first task or adjust your filters to see tasks here.</p>
+        <button class="btn btn-primary" (click)="navigateToCreateTask()">
+          Create Task
+        </button>
       </div>
     </div>
-
     <!-- Pagination -->
     <div class="pagination" *ngIf="result.total > 0">
       <button
@@ -195,16 +208,6 @@
         (click)="onPageChange(result.page + 1)"
       >
         Next
-      </button>
-    </div>
-
-    <!-- Empty State -->
-    <div class="empty-state" *ngIf="result.data.length === 0">
-      <div class="empty-icon">📝</div>
-      <h3>No tasks found</h3>
-      <p>Create your first task or adjust your filters to see tasks here.</p>
-      <button class="btn btn-primary" (click)="navigateToCreateTask()">
-        Create Task
       </button>
     </div>
   </div>

@@ -1,3 +1,5 @@
+import { Task } from './task.interface';
+
 export interface Category {
   id: string;
   title: string;
@@ -5,6 +7,7 @@ export interface Category {
   color: string;
   createdAt: Date;
   updatedAt: Date;
+  tasks?: Task[];
 }
 
 export interface CategoryFilter {
@@ -26,4 +29,17 @@ export interface UpdateCategoryRequest {
   title?: string;
   description?: string;
   color?: string;
+}
+
+export interface PaginationParams {
+  page: number;
+  pageSize: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }

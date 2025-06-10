@@ -5,8 +5,18 @@ import {
   from,
   throwError,
   combineLatest,
+  defer,
+  shareReplay,
+  Subject,
 } from 'rxjs';
-import { map, catchError, tap } from 'rxjs/operators';
+import {
+  map,
+  catchError,
+  tap,
+  switchMap,
+  distinctUntilChanged,
+  debounceTime,
+} from 'rxjs/operators';
 import { supabase } from '../lib/supabase';
 import {
   Category,
@@ -14,13 +24,14 @@ import {
   CategorySort,
   CreateCategoryRequest,
   UpdateCategoryRequest,
+  PaginationParams,
+  PaginatedResponse,
 } from '../models/category.interface';
 
 @Injectable({
   providedIn: 'root',
 })
 export class CategoryService {
-  private categoriesSubject = new BehaviorSubject<Category[]>([]);
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private errorSubject = new BehaviorSubject<string | null>(null);
   private filterSubject = new BehaviorSubject<CategoryFilter>({});
@@ -28,83 +39,152 @@ export class CategoryService {
     field: 'title',
     direction: 'asc',
   });
-  private pageSubject = new BehaviorSubject<{ page: number; size: number }>({
+  private paginationSubject = new BehaviorSubject<PaginationParams>({
     page: 1,
-    size: 6,
+    pageSize: 10,
   });
+  private searchSubject = new Subject<string>();
 
-  categories$ = this.categoriesSubject.asObservable();
+  // Add a cached categories observable
+  private allCategories$ = defer(() =>
+    from(
+      supabase
+        .from('categories')
+        .select('*')
+        .order('title', { ascending: true })
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return data.map(this.mapDatabaseCategoryToCategory);
+      }),
+      shareReplay(1) // Cache the result
+    )
+  );
+
   loading$ = this.loadingSubject.asObservable();
   error$ = this.errorSubject.asObservable();
-  filter$ = this.filterSubject.asObservable();
-  sort$ = this.sortSubject.asObservable();
-  page$ = this.pageSubject.asObservable();
+  filter$ = this.filterSubject.asObservable().pipe(distinctUntilChanged());
+  sort$ = this.sortSubject.asObservable().pipe(distinctUntilChanged());
+  pagination$ = this.paginationSubject
+    .asObservable()
+    .pipe(distinctUntilChanged());
 
-  filteredAndSortedCategories$ = combineLatest([
-    this.categories$,
-    this.filter$,
-    this.sort$,
-  ]).pipe(
-    map(([categories, filter, sort]) => {
-      let filtered = this.applyFilter(categories, filter);
-      return {
-        categories: this.applySort(filtered, sort),
-      };
+  // Debounced search
+  private debouncedSearch$ = this.searchSubject.pipe(
+    debounceTime(300),
+    distinctUntilChanged(),
+    tap((searchTerm) => {
+      const currentFilter = this.filterSubject.value;
+      this.filterSubject.next({
+        ...currentFilter,
+        title: searchTerm,
+      });
     })
   );
 
-  // paginatedCategories$ = combineLatest([
-  //   this.filteredAndSortedCategories$,
-  //   this.page$,
-  // ]).pipe(
-  //   map(([categories, pagination]) => {
-  //     const startIndex = (pagination.page - 1) * pagination.size;
-  //     const endIndex = startIndex + pagination.size;
-  //     return {
-  //       categories: categories.slice(startIndex, endIndex),
-  //       totalCategories: categories.length,
-  //       totalPages: Math.ceil(categories.length / pagination.size),
-  //       currentPage: pagination.page,
-  //     };
-  //   })
-  // );
+  // Combined stream for categories with pagination
+  categories$ = combineLatest([
+    this.filter$,
+    this.sort$,
+    this.pagination$,
+  ]).pipe(
+    switchMap(([filter, sort, pagination]) =>
+      this.loadCategories(filter, sort, pagination)
+    )
+  );
 
   constructor() {
-    // Load categories on service initialization
-    this.loadCategories();
-  }
-
-  private async loadCategories(): Promise<void> {
-    this.loadingSubject.next(true);
-    this.errorSubject.next(null);
-
-    try {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('*')
-        .order('title', { ascending: true });
-
-      if (error) throw error;
-
-      const categories: Category[] = data.map(
-        this.mapDatabaseCategoryToCategory
-      );
-      this.categoriesSubject.next(categories);
-    } catch (error: any) {
-      this.errorSubject.next(error.message);
-      console.error('Error loading categories:', error);
-    } finally {
-      this.loadingSubject.next(false);
-    }
+    // Subscribe to debounced search
+    this.debouncedSearch$.subscribe();
   }
 
   getAllCategories(): Observable<Category[]> {
-    return this.categories$;
+    return this.allCategories$;
+  }
+
+  setSearch(term: string): void {
+    this.searchSubject.next(term);
+  }
+
+  private loadCategories(
+    filter: CategoryFilter,
+    sort: CategorySort,
+    pagination: PaginationParams
+  ): Observable<PaginatedResponse<Category>> {
+    return defer(async () => {
+      this.loadingSubject.next(true);
+      this.errorSubject.next(null);
+
+      try {
+        // Calculate range for pagination
+        const from = (pagination.page - 1) * pagination.pageSize;
+        const to = from + pagination.pageSize - 1;
+
+        // Start building the query
+        let query = supabase.from('categories').select(
+          `
+            *,
+            tasks (
+              id,
+              title,
+              status,
+              due_date,
+              priority
+            )
+          `,
+          { count: 'exact' }
+        );
+
+        // Apply filters
+        if (filter.title) {
+          query = query.ilike('title', `%${filter.title}%`);
+        }
+
+        // Apply sorting
+        const sortField =
+          sort.field === 'createdAt' ? 'created_at' : sort.field;
+        query = query.order(sortField, {
+          ascending: sort.direction === 'asc',
+        });
+
+        // Apply pagination
+        query = query.range(from, to);
+
+        // Execute query
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+        if (count === null) throw new Error('Could not get count');
+
+        const totalPages = Math.ceil(count / pagination.pageSize);
+
+        return {
+          data: data.map(this.mapDatabaseCategoryToCategory),
+          total: count,
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          totalPages,
+        };
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error occurred';
+        this.errorSubject.next(errorMessage);
+        console.error('Error loading categories:', error);
+        throw error;
+      } finally {
+        this.loadingSubject.next(false);
+      }
+    });
   }
 
   getCategoryById(id: string): Observable<Category | undefined> {
-    return this.categories$.pipe(
-      map((categories) => categories.find((category) => category.id === id))
+    return from(
+      supabase.from('categories').select('*').eq('id', id).single()
+    ).pipe(
+      map(({ data, error }) => {
+        if (error) throw error;
+        return data ? this.mapDatabaseCategoryToCategory(data) : undefined;
+      })
     );
   }
 
@@ -125,10 +205,7 @@ export class CategoryService {
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
-        const newCategory = this.mapDatabaseCategoryToCategory(data);
-        const currentCategories = this.categoriesSubject.value;
-        this.categoriesSubject.next([...currentCategories, newCategory]);
-        return newCategory;
+        return this.mapDatabaseCategoryToCategory(data);
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -161,17 +238,7 @@ export class CategoryService {
     ).pipe(
       map(({ data, error }) => {
         if (error) throw error;
-        const updatedCategory = this.mapDatabaseCategoryToCategory(data);
-        const currentCategories = this.categoriesSubject.value;
-        const categoryIndex = currentCategories.findIndex(
-          (category) => category.id === id
-        );
-        if (categoryIndex !== -1) {
-          const updatedCategories = [...currentCategories];
-          updatedCategories[categoryIndex] = updatedCategory;
-          this.categoriesSubject.next(updatedCategories);
-        }
-        return updatedCategory;
+        return this.mapDatabaseCategoryToCategory(data);
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -182,19 +249,12 @@ export class CategoryService {
   }
 
   deleteCategory(id: string): Observable<void> {
-    console.log(id);
     this.loadingSubject.next(true);
     this.errorSubject.next(null);
+
     return from(supabase.from('categories').delete().eq('id', id)).pipe(
       map(({ error }) => {
-        console.log(error);
         if (error) throw error;
-        const currentCategories = this.categoriesSubject.value;
-        const filteredCategories = currentCategories.filter(
-          (category) => category.id !== id
-        );
-        this.categoriesSubject.next(filteredCategories);
-        console.log(this.categoriesSubject, ' this.categoriesSubject');
       }),
       catchError((error) => {
         this.errorSubject.next(error.message);
@@ -204,25 +264,16 @@ export class CategoryService {
     );
   }
 
-  // deleteCategory(id: string): void {
-  //   const currentCategories = this.categoriesSubject.value;
-  //   const filteredCategories = currentCategories.filter(
-  //     (category) => category.id !== id
-  //   );
-  //   this.categoriesSubject.next(filteredCategories);
-  // }
-
   setFilter(filter: CategoryFilter): void {
     this.filterSubject.next(filter);
-    this.pageSubject.next({ ...this.pageSubject.value, page: 1 });
   }
 
   setSort(sort: CategorySort): void {
     this.sortSubject.next(sort);
   }
 
-  setPage(page: number): void {
-    this.pageSubject.next({ ...this.pageSubject.value, page });
+  setPagination(params: PaginationParams): void {
+    this.paginationSubject.next(params);
   }
 
   private mapDatabaseCategoryToCategory(dbCategory: any): Category {
@@ -233,39 +284,13 @@ export class CategoryService {
       color: dbCategory.color,
       createdAt: new Date(dbCategory.created_at),
       updatedAt: new Date(dbCategory.updated_at),
+      tasks: (dbCategory.tasks || []).map((task: any) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        dueDate: new Date(task.due_date),
+        priority: task.priority,
+      })),
     };
-  }
-
-  private applyFilter(
-    categories: Category[],
-    filter: CategoryFilter
-  ): Category[] {
-    return categories.filter((category) => {
-      if (
-        filter.title &&
-        !category.title.toLowerCase().includes(filter.title.toLowerCase())
-      )
-        return false;
-      return true;
-    });
-  }
-
-  private applySort(categories: Category[], sort: CategorySort): Category[] {
-    return [...categories].sort((a, b) => {
-      let aValue: any = a[sort.field];
-      let bValue: any = b[sort.field];
-
-      if (sort.field === 'createdAt') {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-
-      if (aValue < bValue) return sort.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sort.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
   }
 }

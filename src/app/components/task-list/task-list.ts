@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, map } from 'rxjs';
+import { Observable, map, tap, of } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { TaskService } from '../../../services/task.service';
 import { LucideAngularModule, Calendar } from 'lucide-angular';
@@ -25,6 +25,7 @@ import { CategoryService } from '../../../services/category.service';
 export class TaskList {
   categories$: Observable<Category[]>;
   tasks$: Observable<PaginatedResponse<Task>>;
+  categoryMap = new Map<string, Category>();
 
   currentFilter: TaskFilter = {
     status: undefined,
@@ -44,13 +45,22 @@ export class TaskList {
 
   readonly calendarIcon = Calendar;
 
-  public taskService = inject(TaskService);
-  private categoryService = inject(CategoryService);
-  private router = inject(Router);
-
-  constructor() {
-    this.categories$ = this.categoryService.getAllCategories();
+  constructor(
+    public taskService: TaskService,
+    private categoryService: CategoryService,
+    private router: Router
+  ) {
     this.tasks$ = this.taskService.tasks$;
+
+    // Load and cache categories
+    this.categories$ = this.categoryService.getAllCategories().pipe(
+      tap((categories) => {
+        // Update category map for quick lookups
+        this.categoryMap.clear();
+        categories.forEach((cat) => this.categoryMap.set(cat.id, cat));
+      })
+    );
+
     this.taskService.setFilter(this.currentFilter);
     this.taskService.setSort(this.currentSort);
     this.taskService.setPagination({
@@ -148,21 +158,15 @@ export class TaskList {
   }
 
   getCategoryName(categoryId?: string): Observable<string> {
-    if (!categoryId)
-      return new Observable((observer) => observer.next('No Category'));
-
-    return this.categoryService
-      .getCategoryById(categoryId)
-      .pipe(map((category) => category?.title || 'Unknown Category'));
+    if (!categoryId) return of('No Category');
+    const category = this.categoryMap.get(categoryId);
+    return category ? of(category.title) : of('Unknown Category');
   }
 
   getCategoryColor(categoryId?: string): Observable<string> {
-    if (!categoryId)
-      return new Observable((observer) => observer.next('#6b7280'));
-
-    return this.categoryService
-      .getCategoryById(categoryId)
-      .pipe(map((category) => category?.color || '#6b7280'));
+    if (!categoryId) return of('#6b7280');
+    const category = this.categoryMap.get(categoryId);
+    return category ? of(category.color) : of('#6b7280');
   }
 
   toggleSort(field: 'title' | 'status') {

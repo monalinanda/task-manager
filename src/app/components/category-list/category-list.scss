@@ -118,10 +118,9 @@
 
 .category-card {
   background: white;
-  border-radius: 1rem;
+  border-radius: 0.25rem;
   padding: 1.5rem;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
   transition: all 0.3s ease;
   border: 1px solid #e5e7eb;
 }
@@ -152,6 +151,7 @@
   font-weight: 600;
   color: #1f2937;
   flex-grow: 1;
+  text-transform: capitalize;
 }
 
 .category-actions {
